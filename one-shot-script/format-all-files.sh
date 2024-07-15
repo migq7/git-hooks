@@ -1,5 +1,5 @@
 #!/bin/bash
 
-REPO_ROOT=$(git rev-parse --show-toplevel)
+SCRIPT_DIR=$(dirname $(realpath "$0"))
 
-python3 $REPO_ROOT/python/tools.py -t FormatFile --scope all
+python3 $SCRIPT_DIR/../python/tools.py -t FormatFile --scope all

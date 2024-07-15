@@ -46,7 +46,7 @@ To integrate this repository into your project, follow these steps:
 Add this repository as a submodule to your project.
 
 ```bash
-git submodule add ssh://git@192.168.4.94:2200/toolchain/git_hook.git
+git submodule add -b master ssh://git@192.168.4.94:2200/toolchain/git_hook.git
 git submodule update --init --recursive
 ```
 

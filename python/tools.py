@@ -131,6 +131,14 @@ class FileHeaderUpdate(Tools):
             for root, dirs, files in os.walk(self._repo_root_path):
                 if '.git' in dirs:
                     dirs.remove('.git')
+
+                ignored_dir = []
+                for dir in dirs:
+                    if ignore_spec.match_file(os.path.join(root, dir)):
+                        ignored_dir.append(dir)
+                for dir in ignored_dir:
+                    dirs.remove(dir)
+
                 for file in files:
                     filepath = os.path.relpath(os.path.join(root, file), self._repo_root_path)
                     if not ignore_spec.match_file(filepath) and type_spec.match_file(filepath):
@@ -141,10 +149,28 @@ class FormatFile(Tools):
     def __init__(self, repo_root_path, ignore_file_name='.formatignore', scope='changed', type_list=['.cpp', '.h'], stage_file=False):
         super().__init__(repo_root_path, ignore_file_name, scope, type_list, stage_file)
 
-    def _format_file(self, filepath):
+    def _format_file(self, filepath, changed_lines_only=False):
         abs_filepath = os.path.join(self._repo_root_path, filepath)
         # format abs_filepath file with clang-format under google code style guide
-        subprocess.check_output(['clang-format', '-i', '--style=Google', abs_filepath])
+        if changed_lines_only:
+            git_diff_command = ['git', 'diff', '-U0', 'HEAD', '--', abs_filepath]
+            git_diff_process = subprocess.Popen(git_diff_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            git_diff_output, git_diff_error = git_diff_process.communicate()
+
+            if git_diff_process.returncode != 0:
+                print(f"Error running git diff: {git_diff_error.decode('utf-8')}")
+                return
+
+            clang_format_diff_command = ['clang-format-diff', '-p1', '-i', '-style', 'Google']
+            clang_format_diff_process = subprocess.Popen(clang_format_diff_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            clang_format_diff_output, clang_format_diff_error = clang_format_diff_process.communicate(input=git_diff_output)
+
+            if clang_format_diff_process.returncode != 0:
+                print(f"Error running clang-format-diff: {clang_format_diff_error.decode('utf-8')}")
+            else:
+                print("clang-format-diff executed successfully")
+        else:
+            subprocess.check_output(['clang-format', '-i', '--style=Google', abs_filepath])
         print(f'format file {abs_filepath}')
 
         if self._stage_file:
@@ -164,16 +190,24 @@ class FormatFile(Tools):
             file_paths = self._get_changed_file_paths()
             for file in file_paths:
                 if not ignore_spec.match_file(file) and type_spec.match_file(file):
-                    self._format_file(file)
+                    self._format_file(file, True)
         elif self._scope == 'all':
             # os walk repo_root_path, except all .git folders
             for root, dirs, files in os.walk(self._repo_root_path):
                 if '.git' in dirs:
                     dirs.remove('.git')
+
+                ignored_dir = []
+                for dir in dirs:
+                    if ignore_spec.match_file(os.path.join(root, dir)):
+                        ignored_dir.append(dir)
+                for dir in ignored_dir:
+                    dirs.remove(dir)
+
                 for file in files:
                     filepath = os.path.relpath(os.path.join(root, file), self._repo_root_path)
                     if not ignore_spec.match_file(filepath) and type_spec.match_file(filepath):
-                        self._format_file(filepath)
+                        self._format_file(filepath, False)
 
 
 # if main, execute add_header
