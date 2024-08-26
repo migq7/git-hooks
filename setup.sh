@@ -33,6 +33,7 @@ else
   echo "te" >> "$REPO_ROOT/.fileheaderignore"
   echo "tir" >> "$REPO_ROOT/.fileheaderignore"
   echo "topi" >> "$REPO_ROOT/.fileheaderignore"
+  echo "to_cmodel" >> "$REPO_ROOT/.fileheaderignore"
 fi
 
 # check if there is a .formatignore file
@@ -56,6 +57,7 @@ else
   echo "te" >> "$REPO_ROOT/.formatignore"
   echo "tir" >> "$REPO_ROOT/.formatignore"
   echo "topi" >> "$REPO_ROOT/.formatignore"
+  echo "to_cmodel" >> "$REPO_ROOT/.formatignore"
 fi
 
 echo "pre-commit hook created successfully."

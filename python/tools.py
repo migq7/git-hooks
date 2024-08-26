@@ -97,6 +97,7 @@ class FileHeaderUpdate(Tools):
 
     def _add_file_header(self, filepath, use_local_name):
         abs_filepath = os.path.join(self._repo_root_path, filepath)
+        rel_filepath = os.path.relpath(abs_filepath, self._repo_root_path)
         temp_filepath = ''
 
         abs_filedir = os.path.dirname(abs_filepath)
@@ -108,7 +109,7 @@ class FileHeaderUpdate(Tools):
 
         if (created_year != modified_year):
             header = f"""/*
- * @copyright Copyright(c) {created_year}-{modified_year} Hangzhou Zhicun (Witmem) Technology Co., Ltd.
+ * @copyright Copyright(c) {created_year}-{modified_year} xxxx Technology Co., Ltd.
  * @file: {file_name}
  * @author: {created_by}
  * @date: {created_date}
@@ -119,7 +120,7 @@ class FileHeaderUpdate(Tools):
 """
         else:
             header = f"""/*
- * @copyright Copyright(c) {created_year} Hangzhou Zhicun (Witmem) Technology Co., Ltd.
+ * @copyright Copyright(c) {created_year} xxxx Technology Co., Ltd.
  * @file: {file_name}
  * @author: {created_by}
  * @date: {created_date}
@@ -164,11 +165,29 @@ class FileHeaderUpdate(Tools):
                 f_tmp.write(line)
                 line = f.readline()
 
-        os.replace(temp_filepath, abs_filepath)
+        # get diff patch between  file and temp file
+        git_diff_command = ['diff', '-u', abs_filepath, temp_filepath]
+        git_diff_process = subprocess.Popen(git_diff_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        git_diff_output, git_diff_error = git_diff_process.communicate()
+
+        if len(git_diff_output):
+            sed_command = ['sed', '-e', f's/^--- .*/--- a\/{re.escape(rel_filepath)}/', '-e', f's/^+++ .*/+++ b\/{re.escape(rel_filepath)}/']
+            sed_process = subprocess.Popen(sed_command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            sed_output, sed_error = sed_process.communicate(input=git_diff_output)
+
+            git_apply_command = ['git', 'apply', '--whitespace=fix']
+            git_apply_process = subprocess.Popen(git_apply_command, stdin=subprocess.PIPE)
+            git_apply_process.communicate(input=sed_output)
+
+        # remove temp_file
+        os.remove(temp_filepath)
+
         print(f'add header to file {abs_filepath}')
 
         if self._stage_file:
-            subprocess.check_output(['git', 'add', abs_filepath])
+            git_apply_command = ['git', 'apply', '--cached', '--whitespace=fix']
+            git_apply_process = subprocess.Popen(git_apply_command, stdin=subprocess.PIPE)
+            git_apply_process.communicate(input=sed_output)
             print(f'new change of {abs_filepath} staged')
 
 
@@ -207,7 +226,7 @@ class FormatFile(Tools):
         abs_filepath = os.path.join(self._repo_root_path, filepath)
         # format abs_filepath file with clang-format under google code style guide
         if changed_lines_only:
-            git_diff_command = ['git', 'diff', '-U0', 'HEAD', '--', abs_filepath]
+            git_diff_command = ['git', 'diff', '-U0', '--cached', '--', abs_filepath]
             git_diff_process = subprocess.Popen(git_diff_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             git_diff_output, git_diff_error = git_diff_process.communicate()
 
